@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Briefcase, GraduationCap, Award, Code, FileBadge } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getResumeDownloadUrl } from "../lib/resume";
+
 
 const experiences = [
   {
@@ -88,7 +90,7 @@ export default function Home() {
             Contact Me
           </Link>
           <a
-            href="#"
+            href={getResumeDownloadUrl()}
             className="inline-flex items-center justify-center h-12 px-8 font-medium text-black bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
           >
             Download PDF Resume
