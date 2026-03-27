@@ -1,14 +1,34 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, LogOut } from 'lucide-react';
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  FileText,
+  Settings,
+  LogOut,
+  ArrowLeft
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+
+function navClass(isActive: boolean) {
+  return [
+    "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+    isActive
+      ? "bg-black text-white"
+      : "text-gray-600 hover:bg-gray-100"
+  ].join(" ");
+}
 
 export default function AdminLayout() {
-  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-  const navItems = [
-    { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-    { name: 'Posts', path: '/admin/posts', icon: FileText },
-    { name: 'Settings', path: '/admin/settings', icon: Settings },
-  ];
+  async function handleLogout() {
+    try {
+      await logout();
+      navigate("/admin/login", { replace: true });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -16,36 +36,41 @@ export default function AdminLayout() {
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="h-20 flex items-center px-6 border-b border-gray-200">
           <Link to="/" className="text-xl font-bold tracking-tight">
-            AW. Admin
+            FW. Admin
           </Link>
         </div>
-        
+
         <nav className="flex-1 px-4 py-6 space-y-2">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                  isActive 
-                    ? 'bg-black text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                {item.name}
-              </Link>
-            );
-          })}
+          <NavLink to="/admin/posts" end className={({ isActive }) => navClass(isActive)}>
+            <LayoutDashboard className="w-5 h-5" />
+            Dashboard
+          </NavLink>
+
+          <NavLink to="/admin/posts" className={({ isActive }) => navClass(isActive)}>
+            <FileText className="w-5 h-5" />
+            Posts
+          </NavLink>
+
+          <NavLink to="/admin/settings" className={({ isActive }) => navClass(isActive)}>
+            <Settings className="w-5 h-5" />
+            Settings
+          </NavLink>
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 space-y-2">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
+
           <Link
             to="/"
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
           >
-            <LogOut className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
             Back to Site
           </Link>
         </div>
@@ -54,6 +79,7 @@ export default function AdminLayout() {
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="max-w-5xl mx-auto p-8">
+
           <Outlet />
         </div>
       </main>

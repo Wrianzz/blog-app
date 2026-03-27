@@ -1,82 +1,97 @@
-import { useState, useEffect } from 'react';
-import { useParams, Navigate, Link } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { ArrowLeft } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import { getPost } from '../lib/storage';
-import { BlogPost as BlogPostType } from '../data/blogPosts';
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import DOMPurify from "dompurify";
+import type { BlogPost } from "../data/blogPosts";
+import { getPostBySlug } from "../lib/storage";
 
-export default function BlogPost() {
-  const { id } = useParams<{ id: string }>();
-  const [post, setPost] = useState<BlogPostType | null>(null);
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
+}
+
+export default function BlogPostPage() {
+  const { slug } = useParams();
+  const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (id) {
-      const foundPost = getPost(id);
-      setPost(foundPost || null);
-    }
-    setLoading(false);
-  }, [id]);
+    let active = true;
 
-  if (loading) return null;
+    (async () => {
+      try {
+        if (!slug) {
+          throw new Error("Slug tidak ditemukan");
+        }
+
+        const data = await getPostBySlug(slug);
+
+        if (!data) {
+          throw new Error("Post tidak ditemukan");
+        }
+
+        if (active) setPost(data);
+      } catch (err: any) {
+        if (active) setError(err?.message || "Gagal memuat post");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [slug]);
+
+  const safeHtml = useMemo(() => {
+    return DOMPurify.sanitize(post?.content || "");
+  }, [post]);
+
+  if (loading) {
+    return <div className="py-20 text-gray-400">Loading post...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="py-20 space-y-4">
+        <p className="text-red-400">{error}</p>
+        <Link to="/blog" className="text-white underline">
+          Back to blog
+        </Link>
+      </div>
+    );
+  }
 
   if (!post) {
-    return <Navigate to="/blog" replace />;
+    return null;
   }
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="max-w-3xl mx-auto space-y-12"
-    >
-      <Link
-        to="/blog"
-        className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-black transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Blog
+    <article className="py-12 max-w-3xl mx-auto">
+      <Link to="/blog" className="text-sm text-gray-400 hover:text-white">
+        ← Back to blog
       </Link>
 
-      <header className="space-y-6">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tighter leading-tight">
-          {post.title}
-        </h1>
-        <div className="flex items-center gap-4 text-sm text-gray-500 font-mono border-b border-gray-100 pb-8">
-          <time dateTime={post.date}>{post.date}</time>
-          <span>·</span>
+      <header className="mt-6 mb-10 space-y-4">
+        <div className="flex flex-wrap gap-3 text-sm text-gray-400">
+          <span>{formatDate(post.publishedAt)}</span>
+          <span>•</span>
           <span>{post.readTime}</span>
-          <span>·</span>
+          <span>•</span>
           <span>{post.author}</span>
         </div>
+
+        <h1 className="text-4xl md:text-5xl font-semibold">{post.title}</h1>
+        <p className="text-lg text-gray-300">{post.excerpt}</p>
       </header>
 
-      {post.coverImage && (
-        <div className="w-full h-64 md:h-96 rounded-2xl overflow-hidden mb-12">
-          <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
-        </div>
-      )}
-
-      <div className="prose prose-lg prose-gray max-w-none">
-        <ReactMarkdown>{post.content}</ReactMarkdown>
-      </div>
-
-      <footer className="border-t border-gray-100 pt-12 mt-24">
-        <div className="bg-gray-50 rounded-2xl p-8 flex items-center gap-6">
-          <div className="w-16 h-16 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center text-xl font-bold text-gray-500">
-            AW
-          </div>
-          <div>
-            <h4 className="font-semibold text-lg">Fathur Wiriansyah</h4>
-            <p className="text-gray-500 text-sm mt-1">
-              DevOps Engineer & Security Engineer. Writing about security, infrastructure, and the future of the world.
-            </p>
-          </div>
-        </div>
-      </footer>
-    </motion.article>
+      <div
+        className="article-content max-w-none"
+        dangerouslySetInnerHTML={{ __html: safeHtml }}
+      />
+    </article>
   );
 }
-
