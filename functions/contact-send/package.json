@@ -1,0 +1,8 @@
+{
+  "name": "contact-send",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "resend": "^4.0.1"
+  }
+}
