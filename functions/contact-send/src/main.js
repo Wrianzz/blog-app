@@ -28,11 +28,8 @@ export default async ({ req, res, log, error }) => {
   };
 
   try {
-    // Appwrite community guidance: set headers before returning response
-    res.set(corsHeaders);
-
     if (req.method === "OPTIONS") {
-      return res.json({ ok: true }, 200);
+      return res.json({ ok: true }, 200, corsHeaders);
     }
 
     const body = req.bodyJson || {};
@@ -44,7 +41,7 @@ export default async ({ req, res, log, error }) => {
     const website = String(body.website || "").trim(); // honeypot
 
     if (website) {
-      return res.json({ ok: true }, 200);
+      return res.json({ ok: true }, 200, corsHeaders);
     }
 
     if (!name || !email || !message) {
@@ -53,7 +50,8 @@ export default async ({ req, res, log, error }) => {
           ok: false,
           error: "Name, email, and message are required."
         },
-        400
+        400,
+        corsHeaders
       );
     }
 
@@ -63,12 +61,14 @@ export default async ({ req, res, log, error }) => {
 
     if (!resendApiKey || !contactTo || !contactFrom) {
       error("Missing required environment variables.");
+
       return res.json(
         {
           ok: false,
           error: "Server configuration is incomplete."
         },
-        500
+        500,
+        corsHeaders
       );
     }
 
@@ -98,12 +98,14 @@ export default async ({ req, res, log, error }) => {
 
     if (resendError) {
       error(JSON.stringify(resendError));
+
       return res.json(
         {
           ok: false,
           error: "Failed to send email."
         },
-        500
+        500,
+        corsHeaders
       );
     }
 
@@ -114,16 +116,19 @@ export default async ({ req, res, log, error }) => {
         ok: true,
         message: "Message sent successfully."
       },
-      200
+      200,
+      corsHeaders
     );
   } catch (err) {
     error(err?.message || String(err));
+
     return res.json(
       {
         ok: false,
         error: "Unexpected server error."
       },
-      500
+      500,
+      corsHeaders
     );
   }
 };
