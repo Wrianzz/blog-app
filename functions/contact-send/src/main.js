@@ -10,24 +10,51 @@ function escapeHtml(value = "") {
 }
 
 export default async ({ req, res, log, error }) => {
+  const origin = req.headers?.origin || "";
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "https://www.wrianzz.dev"
+  ];
+
+  const allowOrigin = allowedOrigins.includes(origin)
+    ? origin
+    : "https://www.wrianzz.dev";
+
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "86400"
+  };
+
   try {
+    // Appwrite community guidance: set headers before returning response
+    res.set(corsHeaders);
+
+    if (req.method === "OPTIONS") {
+      return res.json({ ok: true }, 200);
+    }
+
     const body = req.bodyJson || {};
 
     const name = String(body.name || "").trim();
     const email = String(body.email || "").trim();
     const subject = String(body.subject || "").trim();
     const message = String(body.message || "").trim();
-    const website = String(body.website || "").trim(); // honeypot anti-bot sederhana
+    const website = String(body.website || "").trim(); // honeypot
 
     if (website) {
-      return res.json({ ok: true });
+      return res.json({ ok: true }, 200);
     }
 
     if (!name || !email || !message) {
-      return res.json({
-        ok: false,
-        error: "Name, email, and message are required."
-      });
+      return res.json(
+        {
+          ok: false,
+          error: "Name, email, and message are required."
+        },
+        400
+      );
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -36,10 +63,13 @@ export default async ({ req, res, log, error }) => {
 
     if (!resendApiKey || !contactTo || !contactFrom) {
       error("Missing required environment variables.");
-      return res.json({
-        ok: false,
-        error: "Server configuration is incomplete."
-      });
+      return res.json(
+        {
+          ok: false,
+          error: "Server configuration is incomplete."
+        },
+        500
+      );
     }
 
     const resend = new Resend(resendApiKey);
@@ -68,24 +98,32 @@ export default async ({ req, res, log, error }) => {
 
     if (resendError) {
       error(JSON.stringify(resendError));
-      return res.json({
-        ok: false,
-        error: "Failed to send email."
-      });
+      return res.json(
+        {
+          ok: false,
+          error: "Failed to send email."
+        },
+        500
+      );
     }
 
     log(`Email sent successfully: ${data?.id || "unknown-id"}`);
 
-    return res.json({
-      ok: true,
-      message: "Message sent successfully."
-    });
+    return res.json(
+      {
+        ok: true,
+        message: "Message sent successfully."
+      },
+      200
+    );
   } catch (err) {
     error(err?.message || String(err));
-
-    return res.json({
-      ok: false,
-      error: "Unexpected server error."
-    });
+    return res.json(
+      {
+        ok: false,
+        error: "Unexpected server error."
+      },
+      500
+    );
   }
 };
