@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { motion } from "motion/react";
 import DOMPurify from "dompurify";
 import type { BlogPost } from "../data/blogPosts";
 import { getPostBySlug } from "../lib/storage";
@@ -52,17 +53,35 @@ export default function BlogPostPage() {
   }, [post]);
 
   if (loading) {
-    return <div className="py-20 text-gray-400">Loading post...</div>;
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-4xl mx-auto space-y-10"
+      >
+        <div className="rounded-3xl bg-gray-50 p-10 text-gray-500">
+          Loading post...
+        </div>
+      </motion.div>
+    );
   }
 
   if (error) {
     return (
-      <div className="py-20 space-y-4">
-        <p className="text-red-400">{error}</p>
-        <Link to="/blog" className="text-white underline">
-          Back to blog
-        </Link>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-4xl mx-auto space-y-6"
+      >
+        <div className="rounded-3xl bg-red-50 p-10">
+          <p className="text-red-500">{error}</p>
+          <Link to="/blog" className="mt-4 inline-flex text-black underline">
+            Back to blog
+          </Link>
+        </div>
+      </motion.div>
     );
   }
 
@@ -71,38 +90,59 @@ export default function BlogPostPage() {
   }
 
   return (
-    <article className="py-12 max-w-3xl mx-auto">
-      <Link to="/blog" className="text-sm text-gray-400 hover:text-white">
-        ← Back to blog
-      </Link>
+    <motion.article
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="max-w-4xl mx-auto space-y-10"
+    >
+      <section className="rounded-3xl bg-gray-50 p-8 md:p-12 space-y-8">
+        <Link
+          to="/blog"
+          className="inline-flex items-center rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:text-black hover:bg-gray-100 transition-colors"
+        >
+          ← Back to blog
+        </Link>
 
-      {post.coverImageId && (
-        <div className="mb-8 overflow-hidden rounded-2xl border border-black/10">
-          <img
-            src={getCoverImageUrl(post.coverImageId)}
-            alt={post.title}
-            className="w-full max-h-[460px] object-cover"
-          />
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+            <span>{formatDate(post.publishedAt)}</span>
+            <span>•</span>
+            <span>{post.readTime}</span>
+            <span>•</span>
+            <span>{post.author}</span>
+          </div>
+
+          <div className="space-y-4">
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter leading-tight text-black">
+              {post.title}
+            </h1>
+
+            {post.excerpt && (
+              <p className="max-w-3xl text-lg md:text-xl leading-8 text-gray-600">
+                {post.excerpt}
+              </p>
+            )}
+          </div>
         </div>
+
+        {post.coverImageId && (
+          <div className="overflow-hidden rounded-3xl border border-black/10 bg-white">
+            <img
+              src={getCoverImageUrl(post.coverImageId)}
+              alt={post.title}
+              className="w-full max-h-[460px] object-cover"
+            />
+          </div>
         )}
+      </section>
 
-      <header className="mt-6 mb-10 space-y-4">
-        <div className="flex flex-wrap gap-3 text-sm text-gray-400">
-          <span>{formatDate(post.publishedAt)}</span>
-          <span>•</span>
-          <span>{post.readTime}</span>
-          <span>•</span>
-          <span>{post.author}</span>
-        </div>
-
-        <h1 className="text-4xl md:text-5xl font-semibold">{post.title}</h1>
-        <p className="text-lg text-gray-300">{post.excerpt}</p>
-      </header>
-
-      <div
-        className="article-content max-w-none"
-        dangerouslySetInnerHTML={{ __html: safeHtml }}
-      />
-    </article>
+      <section className="rounded-3xl bg-white">
+        <div
+          className="article-content max-w-none"
+          dangerouslySetInnerHTML={{ __html: safeHtml }}
+        />
+      </section>
+    </motion.article>
   );
 }
