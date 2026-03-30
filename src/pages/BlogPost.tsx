@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import DOMPurify from "dompurify";
 import type { BlogPost } from "../data/blogPosts";
 import { getPostBySlug } from "../lib/storage";
+import { getCoverImageUrl } from "../lib/media";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
@@ -74,6 +75,16 @@ export default function BlogPostPage() {
       <Link to="/blog" className="text-sm text-gray-400 hover:text-white">
         ← Back to blog
       </Link>
+
+      {post.coverImageId && (
+        <div className="mb-8 overflow-hidden rounded-2xl border border-black/10">
+          <img
+            src={getCoverImageUrl(post.coverImageId)}
+            alt={post.title}
+            className="w-full max-h-[460px] object-cover"
+          />
+        </div>
+        )}
 
       <header className="mt-6 mb-10 space-y-4">
         <div className="flex flex-wrap gap-3 text-sm text-gray-400">

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { BlogPost } from "../data/blogPosts";
 import { getPublishedPosts } from "../lib/storage";
+import { getCoverImageUrl } from "../lib/media";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
@@ -69,7 +70,15 @@ export default function Blog() {
               <span>•</span>
               <span>{post.author}</span>
             </div>
-
+            {post.coverImageId && (
+              <div className="mb-5 overflow-hidden rounded-2xl border border-black/10">
+                <img
+                  src={getCoverImageUrl(post.coverImageId)}
+                  alt={post.title}
+                  className="w-full h-[240px] object-cover"
+                />
+              </div>
+            )}
             <h2 className="text-2xl font-semibold mb-2">{post.title}</h2>
             <p className="text-gray-300 mb-4">{post.excerpt}</p>
 

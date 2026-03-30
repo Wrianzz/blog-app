@@ -5,6 +5,7 @@ import { Editor } from "@tinymce/tinymce-react";
 import type { BlogPostStatus } from "../../data/blogPosts";
 import { getPostById, savePost } from "../../lib/storage";
 import { useAuth } from "../../context/AuthContext";
+import { deleteCoverImage, getCoverImageUrl, uploadCoverImage } from "../../lib/media";
 
 function slugify(value: string) {
   return value
@@ -42,6 +43,10 @@ export default function BlogEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
+  const [localCoverPreview, setLocalCoverPreview] = useState("");
+  const [removeExistingCover, setRemoveExistingCover] = useState(false);
 
   const isEdit = useMemo(() => Boolean(id), [id]);
 
@@ -74,6 +79,14 @@ export default function BlogEditor() {
       createdBy: prev.createdBy || user.$id
     }));
   }, [user]);
+
+  useEffect(() => {
+    return () => {
+      if (localCoverPreview) {
+        URL.revokeObjectURL(localCoverPreview);
+      }
+    };
+  }, [localCoverPreview]);
 
   useEffect(() => {
     if (!id) return;
@@ -130,13 +143,84 @@ export default function BlogEditor() {
     }));
   }
 
-  async function persist(status: BlogPostStatus) {
-    setSaving(true);
+  async function handleCoverUpload(file: File | null) {
+    if (!file) return;
+
+    setCoverUploading(true);
     setError("");
 
     try {
-      const readTime = form.readTime.trim() || estimateReadTimeFromHtml(form.content);
+      const uploaded = await uploadCoverImage(file);
+      updateField("coverImageId", uploaded.$id);
+    } catch (err: any) {
+      setError(err?.message || "Gagal upload cover image");
+    } finally {
+      setCoverUploading(false);
+    }
+  }
 
+  function handleCoverSelect(file: File | null) {
+    if (!file) return;
+
+    if (localCoverPreview) {
+      URL.revokeObjectURL(localCoverPreview);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setSelectedCoverFile(file);
+    setLocalCoverPreview(previewUrl);
+    setRemoveExistingCover(false);
+  }
+
+  function handleRemoveCover() {
+    if (localCoverPreview) {
+      URL.revokeObjectURL(localCoverPreview);
+    }
+
+    setSelectedCoverFile(null);
+    setLocalCoverPreview("");
+
+    if (form.coverImageId) {
+      setRemoveExistingCover(true);
+    } else {
+      setRemoveExistingCover(false);
+    }
+  }
+
+  const currentCoverPreview = localCoverPreview
+    ? localCoverPreview
+    : !removeExistingCover && form.coverImageId
+      ? getCoverImageUrl(form.coverImageId)
+      : "";
+
+  async function persist(status: BlogPostStatus) {
+    setSaving(true);
+    setCoverUploading(false);
+    setError("");
+  
+    const oldCoverImageId = form.coverImageId || "";
+    let uploadedNewCoverId = "";
+    let nextCoverImageId = oldCoverImageId;
+  
+    try {
+      if (removeExistingCover) {
+        nextCoverImageId = "";
+      }
+    
+      if (selectedCoverFile) {
+        setCoverUploading(true);
+      
+        const uploaded = await uploadCoverImage(selectedCoverFile);
+        uploadedNewCoverId = uploaded.$id;
+        nextCoverImageId = uploadedNewCoverId;
+      
+        setCoverUploading(false);
+      }
+    
+      const readTime =
+        form.readTime.trim() || estimateReadTimeFromHtml(form.content);
+    
       await savePost({
         id: form.id || undefined,
         title: form.title,
@@ -146,17 +230,51 @@ export default function BlogEditor() {
         publishedAt: toIso(form.publishedAt),
         readTime,
         author: form.author || user?.name || user?.email || "Admin",
-        coverImageId: form.coverImageId || "",
+        coverImageId: nextCoverImageId,
         status,
         createdBy: form.createdBy || user?.$id || "",
         updatedAt: new Date().toISOString()
       });
-
+    
+      const oldCoverWasReplaced =
+        oldCoverImageId &&
+        nextCoverImageId &&
+        oldCoverImageId !== nextCoverImageId;
+    
+      const oldCoverWasRemoved =
+        oldCoverImageId &&
+        !nextCoverImageId;
+    
+      if (oldCoverWasReplaced || oldCoverWasRemoved) {
+        try {
+          await deleteCoverImage(oldCoverImageId);
+        } catch (cleanupError) {
+          console.error("Failed to delete old cover image:", cleanupError);
+        }
+      }
+    
+      if (localCoverPreview) {
+        URL.revokeObjectURL(localCoverPreview);
+      }
+    
+      setSelectedCoverFile(null);
+      setLocalCoverPreview("");
+      setRemoveExistingCover(false);
+    
       navigate("/admin/posts", { replace: true });
     } catch (err: any) {
+      if (uploadedNewCoverId) {
+        try {
+          await deleteCoverImage(uploadedNewCoverId);
+        } catch (cleanupError) {
+          console.error("Failed to cleanup uploaded cover:", cleanupError);
+        }
+      }
+    
       setError(err?.message || "Gagal menyimpan post");
     } finally {
       setSaving(false);
+      setCoverUploading(false);
     }
   }
 
@@ -324,13 +442,53 @@ export default function BlogEditor() {
               onChange={(e) => updateField("author", e.target.value)}
             />
 
-            <input
-              type="text"
-              placeholder="Cover Image ID"
-              className="w-full rounded-xl bg-white border border-black/10 px-4 py-3 outline-none"
-              value={form.coverImageId}
-              onChange={(e) => updateField("coverImageId", e.target.value)}
-            />
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-700">
+                Cover Image
+              </label>
+
+              {currentCoverPreview && (
+                <div className="rounded-2xl overflow-hidden border border-black/10 bg-white">
+                  <img
+                    src={currentCoverPreview}
+                    alt="Cover preview"
+                    className="w-full max-h-[280px] object-cover"
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="rounded-xl border border-black/10 bg-white px-4 py-3 cursor-pointer text-sm font-medium hover:bg-gray-50">
+                  {coverUploading ? "Uploading..." : "Upload Cover"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleCoverSelect(e.target.files?.[0] || null)}
+                  />
+                </label>
+            
+                {(selectedCoverFile || form.coverImageId) && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveCover}
+                    className="rounded-xl border border-black/10 bg-white px-4 py-3 text-sm hover:bg-gray-50"
+                  >
+                    Remove Cover
+                  </button>
+                )}
+              </div>
+              
+              <p className="text-xs text-gray-500 break-all">
+                {selectedCoverFile
+                  ? `Pending upload: ${selectedCoverFile.name}`
+                  : removeExistingCover
+                    ? "Cover will be removed when you save."
+                    : form.coverImageId
+                      ? `Existing file ID: ${form.coverImageId}`
+                      : "No cover uploaded yet."}
+              </p>
+            </div>
           </div>
 
           <select
