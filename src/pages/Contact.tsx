@@ -63,7 +63,7 @@ export default function Contact() {
           Get in touch
         </h1>
         <p className="text-xl text-gray-500 max-w-2xl">
-          I&apos;m always open to discussing product design work or partnership
+          I&apos;m always open to discussing project or partnership
           opportunities.
         </p>
       </header>
