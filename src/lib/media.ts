@@ -36,6 +36,13 @@ export async function uploadCoverImage(file: File) {
   return uploaded;
 }
 
+export async function deleteCoverImage(fileId: string) {
+  await storage.deleteFile({
+    bucketId,
+    fileId
+  });
+}
+
 export function getCoverImageUrl(fileId?: string) {
   if (!fileId) return "";
   return String(
